@@ -7,18 +7,16 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 public class MainApp extends PApplet {
-
     public static void main(String[] args) {
         PApplet.main("MainApp");
     }
 
-
-    Snake snake;
-    Resources res;
     float t;
     int intendedObstacleCount = 12;
     int intendedAppleCount = 3;
-    int intendedParticleCount = 1000;
+    int intendedParticleCount = 100;
+    Snake snake;
+    Resources res;
     JSONObject progress = new JSONObject();
     String highscoreFilePath = "highscore.json";
     String highscoreKey = "high";
@@ -27,26 +25,26 @@ public class MainApp extends PApplet {
     ArrayList<Obstacle> obstacles = new ArrayList<Obstacle>();
     ArrayList<Obstacle> obstaclesToRemove = new ArrayList<Obstacle>();
     ArrayList<Particle> particles = new ArrayList<Particle>();
-    ArrayList<Particle> psToRemove = new ArrayList<Particle>();
+    ArrayList<Particle> particlesToRemove = new ArrayList<Particle>();
     ArrayList<Flourish> flourishes = new ArrayList<Flourish>();
     ArrayList<Flourish> flourishesToRemove = new ArrayList<Flourish>();
 
     public void settings() {
-        fullScreen(P3D);
+        fullScreen(P2D);
         smooth(8);
     }
 
     public void setup() {
         colorMode(HSB, 255, 255, 255, 100);
         res = new Resources();
-        ortho();
+//        ortho();
         background(0);
         snake = new Snake();
         loadProgress();
     }
 
     public void draw() {
-        noCursor();
+//        noCursor();
         t = radians(frameCount);
         backgroundUpdate();
         snake.mouseInteraction();
@@ -69,54 +67,50 @@ public class MainApp extends PApplet {
     void backgroundUpdate() {
         pushMatrix();
         pushStyle();
-        hint(DISABLE_DEPTH_TEST);
-        imageMode(CORNER);
-        noTint();
-        image(res.get("background"), 0, 0, width, height);
-        hint(ENABLE_DEPTH_TEST);
-        lightSpecular(255, 50, 255);
-        ambientLight(255, 0, 50);
-        directionalLight(255, 255, 255, 0, 0, -1);
-        shininess(.5f);
-
-        for (Particle particle : particles) {
-            particle.update();
-        }
-        while (particles.size() < intendedParticleCount) {
-            particles.add(new Particle());
-        }
-        particles.removeAll(psToRemove);
-        psToRemove.clear();
-
-        noLights();
-
-        for (Flourish flourish : flourishes) {
-            flourish.update();
-        }
-
-        flourishes.removeAll(flourishesToRemove);
-        flourishesToRemove.clear();
-
-
-        hint(DISABLE_DEPTH_TEST);
-
-        textAlign(CENTER, CENTER);
-        int score = (snake.intendedBodySize - snake.minimumBodySize);
-        fill(100);
-        textSize(height * 70 / 1080f + score);
-        text("" + score, width * .5f, height * .5f);
-
-        float w = snake.invulnerabilityNormalized * 120;
-        stroke(100);
-        strokeWeight(10);
-        line(width * .5f - w, height * .62f, width * .5f + w, height * .62f);
-
-        textSize(height * 40 / 1080f);
-        text("" + (snake.highestSeenBodySize - snake.minimumBodySize), width * .5f, height * .05f);
-        hint(ENABLE_DEPTH_TEST);
+        background(0);
+        updateParticles();
+        updateFlourishes();
+        updateText();
+        updateInvulnerabilityIndicator();
         popStyle();
         popMatrix();
 
+    }
+
+    private void updateParticles() {
+        for (Particle particle : particles) {
+            particle.update();
+        }
+        if (particles.size() < intendedParticleCount && frameCount % 2 == 0) {
+            particles.add(new Particle());
+        }
+        particles.removeAll(particlesToRemove);
+        particlesToRemove.clear();
+    }
+
+    private void updateFlourishes() {
+        for (Flourish flourish : flourishes) {
+            flourish.update();
+        }
+        flourishes.removeAll(flourishesToRemove);
+        flourishesToRemove.clear();
+
+    }
+    private void updateText() {
+        textAlign(CENTER, CENTER);
+        int score = (snake.intendedBodySize - snake.minimumBodySize);
+        noStroke();
+        fill(100);
+        textSize(max(50, screenAreaAdjustedPixels(70)));
+        text("" + score, width * .5f, height * .5f);
+        textSize(max(30, screenAreaAdjustedPixels(40)));
+        text("" + (snake.highestSeenBodySize - snake.minimumBodySize), width * .5f, height * .05f);
+    }
+    private void updateInvulnerabilityIndicator() {
+        float w = snake.invulnerabilityNormalized * 120;
+        rectMode(CENTER);
+        rect(width * .5f, height * .62f, w*2, 10 );
+        line(width * .5f - w, height * .62f, width * .5f + w, height * .62f);
     }
 
     //call this using thread() for responsive GUI
@@ -127,7 +121,7 @@ public class MainApp extends PApplet {
 
     void loadProgress() {
         try {
-            snake.highestSeenBodySize = (Integer) loadJSONObject(highscoreFilePath).get("high");
+            snake.highestSeenBodySize = (Integer) loadJSONObject(highscoreFilePath).get(highscoreKey);
         } catch (Exception ex) {
             println("json was not found - a new one will be created as soon as the player gets 1 point");
         }
@@ -145,7 +139,7 @@ public class MainApp extends PApplet {
     }
 
     PVector randomPointAwayFromEdges() {
-        float offsetFromEdge = 200;
+        float offsetFromEdge = screenAreaAdjustedPixels(200);
         return new PVector(random(offsetFromEdge, width - offsetFromEdge), random(offsetFromEdge, height - offsetFromEdge));
     }
 
@@ -157,18 +151,26 @@ public class MainApp extends PApplet {
         return 1 - constrain(map(frameCount, start, start + duration, 0, 1), 0, 1);
     }
 
+    private float screenAreaAdjustedPixels(float px) {
+        float totalPixelsOnOriginalScreen = 1920 * 1080;
+        float totalPixelsOnTargetScreen = width * height;
+        return px * totalPixelsOnTargetScreen / totalPixelsOnOriginalScreen;
+    }
+
     class Particle {
         float hue = 150 + random(50);
         float sat = 150;
         float br = 100;
         float r = random(5, 10);
+
         float damp = .98f;
         PVector pos = new PVector(random(width), random(height));
         PVector spd = new PVector();
         PVector acc = new PVector();
 
         int frameCreated = frameCount;
-        int fadeInDuration = 50;
+        int fadeDuration = 50;
+        int framesLifespan = 100;
 
         void update() {
 //            applyNoise();
@@ -183,22 +185,25 @@ public class MainApp extends PApplet {
                     (pos.x - r > width && spd.x > 0) ||
                     (pos.y < r && spd.y < 0) ||
                     (pos.y - r > height && spd.y > 0)) {
-                psToRemove.add(this);
+                particlesToRemove.add(this);
             }
-            float fadeInNormalized = normalizedDuration(frameCreated, fadeInDuration);
-            strokeWeight(r);
+            float fadeNormalized = normalizedDuration(frameCreated, fadeDuration);
+            if (frameCount > frameCreated + framesLifespan) {
+                fadeNormalized = 1 - normalizedDuration(frameCreated + framesLifespan, fadeDuration);
+                if (frameCount > frameCreated + framesLifespan + fadeDuration) {
+                    particlesToRemove.add(this);
+                }
+            }
             noStroke();
-            fill(hue, sat, br, 100 - fadeInNormalized * 100);
-
-            specular(hue, sat, br - fadeInNormalized * 255);
-            ambient(0);
+            fill(hue, sat, br, 100 - fadeNormalized * 100);
+//            specular(hue, sat, br - fadeNormalized * 255);
+//            ambient(0);
             pushMatrix();
             translate(pos.x, pos.y);
             float rotScl = .1f;
-            rotateX(noise(pos.x * rotScl + spd.x * rotScl + t * rotScl) * TWO_PI * 2.5f);
-            rotateY(noise(pos.y * rotScl + spd.y * rotScl + t * rotScl) * TWO_PI * 2);
-            rotateZ(noise(pos.x + rotScl + pos.y * rotScl + t * rotScl) * TWO_PI * 3);
-            box(r, r, 0);
+            rotate(noise(pos.x * rotScl + spd.x * rotScl + t * rotScl) * TWO_PI);
+            rectMode(CENTER);
+            rect(0, 0, r, r);
             popMatrix();
         }
 
@@ -208,10 +213,12 @@ public class MainApp extends PApplet {
         }
 
         void applyMouse() {
-            float ma = angleBetween(pmouseX, pmouseY, mouseX, mouseY);
-            float mm = dist(mouseX, mouseY, pmouseX, pmouseY);
             float md = dist(pos.x, pos.y, mouseX, mouseY);
-            acc.add(PVector.fromAngle(ma).mult((10 * mm * mm / (md * md)) / r));
+            if (md < screenAreaAdjustedPixels(200)) {
+                float ma = angleBetween(pmouseX, pmouseY, mouseX, mouseY);
+                float mm = dist(mouseX, mouseY, pmouseX, pmouseY);
+                acc.add(PVector.fromAngle(ma).mult((10 * mm * mm / (md * md)) / r));
+            }
         }
 
         float getAngleAt(float x, float y) {
@@ -230,7 +237,7 @@ public class MainApp extends PApplet {
 
     class Food {
         PVector pos;
-        float size = height*(47 * 2)/1080f;
+        float size = screenAreaAdjustedPixels(47 * 2);
         int frameCreated;
         int fadeInDurationInFrames = 30;
         boolean grantsInvulnerability = false;
@@ -251,12 +258,12 @@ public class MainApp extends PApplet {
                 if (!grantsInvulnerability) {
                     snake.intendedBodySize++;
                     flourishes.add(new Flourish(new PVector(pos.x, pos.y),
-                            20, 20, 2, 255, 0, 150, 50, TWO_PI));
+                            20, 20, 1, 255, 0, 150, 50, TWO_PI));
                 } else {
                     snake.intendedBodySize += 3;
                     snake.invulnerabilityStartFrame = frameCount;
                     flourishes.add(new Flourish(new PVector(pos.x, pos.y),
-                            60, 35, 5, 255, 0, 255, 50, TWO_PI));
+                            60, 35, 1, 255, 0, 255, 50, TWO_PI));
                 }
 
             }
@@ -268,7 +275,7 @@ public class MainApp extends PApplet {
             }
             pushMatrix();
             noFill();
-            float fadeIn = map(frameCount, frameCreated, frameCreated + fadeInDurationInFrames, 0, 1);
+            float fadeIn = 1 - normalizedDuration(frameCreated, fadeInDurationInFrames);
             if (grantsInvulnerability) {
                 fadeIn = 1;
             }
@@ -292,7 +299,7 @@ public class MainApp extends PApplet {
         float rotation;
 
         Obstacle() {
-            float s = random(75, 150);
+            float s = screenAreaAdjustedPixels(random(75, 150));
             size = new PVector(s, s);
 
             if (random(1) > .5f) {
@@ -324,7 +331,6 @@ public class MainApp extends PApplet {
                     spd.y = minSpd;
                 }
             }
-
             float r = random(1);
             if (r < .25) {
                 rotation = 0;
@@ -356,12 +362,11 @@ public class MainApp extends PApplet {
 
             if (isCollidingWithSnake()) {
                 tint(0, 255, 255);
-                snake.collide(this);
+                snake.collide();
             }
 
-
             pushMatrix();
-            translate(topLeft.x + size.x * .5f, topLeft.y + size.y * .5f, 100);
+            translate(topLeft.x + size.x * .5f, topLeft.y + size.y * .5f);
             rotate(rotation);
             imageMode(CENTER);
             image(res.get("obstacle"), 0, 0, size.x, size.y);
@@ -374,7 +379,6 @@ public class MainApp extends PApplet {
             }
             for (Segment s : snake.body) {
                 if (pointRectCollision(s.pos.x, s.pos.y, topLeft.x, topLeft.y, size.x, size.y)) {
-
                     return true;
                 }
             }
@@ -394,7 +398,6 @@ public class MainApp extends PApplet {
         float displacementMagnitude = 15;
         float mouseDist;
         float requiredMouseDist = 2;
-        float lockDist = 15000;
         float lerpMagnitude = .5f;
         float invulnerabilityNormalized;
 
@@ -514,7 +517,7 @@ public class MainApp extends PApplet {
             }*/
         }
 
-        public void collide(Obstacle obstacle) {
+        public void collide() {
             if (intendedBodySize > minimumBodySize) {
                 intendedBodySize--;
             }
@@ -575,7 +578,6 @@ public class MainApp extends PApplet {
             }
             popMatrix();
         }
-
     }
 
     class Resources {
@@ -589,12 +591,10 @@ public class MainApp extends PApplet {
             images.put("ghost", loadImage("ghost.png"));
             images.put("food", loadImage("food.png"));
             images.put("obstacle", loadImage("obstacle.png"));
-            images.put("background", loadImage("background.png"));
         }
 
         public PImage get(String name) {
             return images.get(name);
         }
     }
-
 }
