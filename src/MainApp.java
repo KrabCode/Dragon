@@ -37,14 +37,12 @@ public class MainApp extends PApplet {
     public void setup() {
         colorMode(HSB, 255, 255, 255, 100);
         res = new Resources();
-//        ortho();
         background(0);
         snake = new Snake();
         loadProgress();
     }
 
     public void draw() {
-//        noCursor();
         t = radians(frameCount);
         backgroundUpdate();
         snake.mouseInteraction();
@@ -170,7 +168,7 @@ public class MainApp extends PApplet {
 
         int frameCreated = frameCount;
         int fadeDuration = 50;
-        int framesLifespan = 100;
+        int framesLifespan = 2000;
 
         void update() {
 //            applyNoise();
@@ -237,7 +235,7 @@ public class MainApp extends PApplet {
 
     class Food {
         PVector pos;
-        float size = screenAreaAdjustedPixels(47 * 2);
+        float size = screenAreaAdjustedPixels(108);
         int frameCreated;
         int fadeInDurationInFrames = 30;
         boolean grantsInvulnerability = false;
@@ -265,7 +263,6 @@ public class MainApp extends PApplet {
                     flourishes.add(new Flourish(new PVector(pos.x, pos.y),
                             60, 35, 1, 255, 0, 255, 50, TWO_PI));
                 }
-
             }
             if (grantsInvulnerability) {
                 size--;
